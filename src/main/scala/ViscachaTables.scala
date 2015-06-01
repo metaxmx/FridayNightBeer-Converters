@@ -1,8 +1,22 @@
 import slick.driver.MySQLDriver.api._
-import slick.lifted.{ProvenShape, ForeignKeyQuery}
+import slick.lifted.{ ProvenShape, ForeignKeyQuery }
 
-class ViscachaUser(tag: Tag)
-  extends Table[(Int, String, String, String, Long, String, String, String, String, Option[String], String, Long)](tag, "v_user") {
+case class ViscachaUser(
+  id: Int,
+  name: String,
+  pw: String,
+  mail: String,
+  regdate: Long,
+  fullname: String,
+  signature: String,
+  location: String,
+  gender: String,
+  birthday: Option[String],
+  pic: String,
+  lastvisit: Long)
+
+class ViscachaUsers(tag: Tag)
+  extends Table[ViscachaUser](tag, "v_user") {
 
   // This is the primary key column:
   def id: Rep[Int] = column[Int]("id", O.PrimaryKey)
@@ -17,8 +31,7 @@ class ViscachaUser(tag: Tag)
   def birthday: Rep[Option[String]] = column[Option[String]]("birthday")
   def pic: Rep[String] = column[String]("pic")
   def lastvisit: Rep[Long] = column[Long]("lastvisit")
-  
+
   // Every table needs a * projection with the same type as the table's type parameter
-  def * : ProvenShape[(Int, String, String, String, Long, String, String, String, String, Option[String], String, Long)] =
-    (id, name, pw, mail, regdate, fullname, signature, location, gender, birthday, pic, lastvisit)
+  def * = (id, name, pw, mail, regdate, fullname, signature, location, gender, birthday, pic, lastvisit) <> (ViscachaUser.tupled, ViscachaUser.unapply)
 }

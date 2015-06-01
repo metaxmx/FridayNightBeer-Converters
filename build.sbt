@@ -11,6 +11,7 @@ libraryDependencies ++= List(
   "org.slf4j" % "slf4j-nop" % "1.6.4",
   "com.h2database" % "h2" % "1.3.175",
   "mysql" % "mysql-connector-java" % "latest.release",
+  "org.reactivemongo" %% "reactivemongo" % "0.10.5.0.akka23",
   "org.scalatest" %% "scalatest" % "2.2.4" % "test"
 )
 
