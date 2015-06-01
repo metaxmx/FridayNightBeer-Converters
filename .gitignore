@@ -1,0 +1,11 @@
+target
+/project/typesafe.properties
+/project/activator-*
+/project/project
+/logs/
+/RUNNING_PID
+*.iml
+.DS_Store
+.sbtserver*
+/bin/
+/.*
