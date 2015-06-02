@@ -37,3 +37,20 @@ class ViscachaUsers(tag: Tag)
   // Every table needs a * projection with the same type as the table's type parameter
   def * = (id, name, pw, mail, regdate, fullname, signature, location, gender, birthday, pic, lastvisit) <> (ViscachaUser.tupled, ViscachaUser.unapply)
 }
+
+case class ViscachaCategory(
+  id: Int,
+  name: String,
+  position: Int)
+
+class ViscachaCategories(tag: Tag)
+  extends Table[ViscachaCategory](tag, "v_categories") {
+
+  // This is the primary key column:
+  def id: Rep[Int] = column[Int]("id", O.PrimaryKey)
+  def name: Rep[String] = column[String]("name")
+  def position: Rep[Int] = column[Int]("position")
+
+  // Every table needs a * projection with the same type as the table's type parameter
+  def * = (id, name, position) <> (ViscachaCategory.tupled, ViscachaCategory.unapply)
+}

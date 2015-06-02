@@ -32,3 +32,28 @@ object FnbUser {
   }
 
 }
+
+case class FnbCategory(
+  _id: BSONObjectID,
+  name: String,
+  position: Int)
+
+object FnbCategory {
+
+  implicit object FnbCategoryWriter extends BSONDocumentWriter[FnbCategory] {
+    def write(cat: FnbCategory): BSONDocument = BSONDocument(
+      "_id" -> cat._id,
+      "name" -> cat.name,
+      "position" -> cat.position)
+  }
+
+  implicit object FnbCategoryReader extends BSONDocumentReader[FnbCategory] {
+    def read(doc: BSONDocument): FnbCategory = {
+      FnbCategory(
+        doc.getAs[BSONObjectID]("_id").get,
+        doc.getAs[String]("name").get,
+        doc.getAs[Int]("position").get)
+    }
+  }
+
+}

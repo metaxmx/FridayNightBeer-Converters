@@ -1,6 +1,6 @@
 package app
 
-import scala.concurrent.{Future, Await}
+import scala.concurrent.{ Future, Await }
 import scala.concurrent.duration.Duration
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.slick.driver.MySQLDriver.api._
@@ -28,19 +28,32 @@ object DbConverter extends Logging {
       val mongoConnection = mongoDriver.connection(List("localhost"))
       try {
         val mongoDb = mongoConnection.db("fnb")
-        val fnbUsercollection = mongoDb.collection[BSONCollection]("users")
+        val fnbUserCollection = mongoDb.collection[BSONCollection]("users")
+        val fnbCategoriesCollection = mongoDb.collection[BSONCollection]("categories")
 
         // Convert Users
 
         logger.info("Converting Users ...")
 
         val fetchUsersFuture = fetchViscachaUsers
-        val insertUsersFuture = insertFnbUsers(fnbUsercollection, fetchUsersFuture)
+        val insertUsersFuture = insertFnbUsers(fnbUserCollection, fetchUsersFuture)
         insertUsersFuture.onComplete {
           case Success(count) => logger.info(s"Successfull inserted $count users")
           case Failure(exc)   => logger.error("Error inserting users", exc)
         }
         Await.result(insertUsersFuture, Duration.Inf)
+
+        // Convert Categories and Forums
+
+        logger.info("Converting Categories and Forums ...")
+
+        val fetchCategoriesFuture = fetchViscachaCategories
+        val insertCategoriesFuture = insertFnbCategories(fnbCategoriesCollection, fetchCategoriesFuture)
+        insertCategoriesFuture.onComplete {
+          case Success(count) => logger.info(s"Successfull inserted $count categories")
+          case Failure(exc)   => logger.error("Error inserting categories", exc)
+        }
+        Await.result(insertCategoriesFuture, Duration.Inf)
 
       } finally mongoConnection.close
 
@@ -50,17 +63,34 @@ object DbConverter extends Logging {
 
   }
 
-  def fetchViscachaUsers(implicit viscachaDb: Database): Future[Seq[ViscachaUser]] = viscachaDb.run(TableQuery[ViscachaUsers].result)
+  def fetchViscachaUsers(implicit viscachaDb: Database): Future[Seq[ViscachaUser]] =
+    viscachaDb.run(TableQuery[ViscachaUsers].result)
 
-  def insertFnbUsers(fnbUsercollection: BSONCollection, usersFuture: Future[Seq[ViscachaUser]]) = {
+  def insertFnbUsers(fnbUserCollection: BSONCollection, usersFuture: Future[Seq[ViscachaUser]]) = {
     usersFuture map {
       _ map { user => FnbUser(BSONObjectID.generate, user.name, user.pw, user.name, user.fullname) }
     } flatMap {
       vUsers =>
-        fnbUsercollection.remove(BSONDocument()).flatMap {
+        fnbUserCollection.remove(BSONDocument()).flatMap {
           lastError =>
             vUsers.foreach { user => logger.debug(s"Insert: $user") }
-            fnbUsercollection.bulkInsert(Enumerator.enumerate(vUsers))
+            fnbUserCollection.bulkInsert(Enumerator.enumerate(vUsers))
+        }
+    }
+  }
+
+  def fetchViscachaCategories(implicit viscachaDb: Database): Future[Seq[ViscachaCategory]] =
+    viscachaDb.run(TableQuery[ViscachaCategories].sortBy { _.position }.result)
+
+  def insertFnbCategories(fnbCategoriesCollection: BSONCollection, categoriesFuture: Future[Seq[ViscachaCategory]]) = {
+    categoriesFuture map {
+      _ map { cat => FnbCategory(BSONObjectID.generate, cat.name, cat.position) }
+    } flatMap {
+      vCats =>
+        fnbCategoriesCollection.remove(BSONDocument()).flatMap {
+          lastError =>
+            vCats.foreach { user => logger.debug(s"Insert: $user") }
+            fnbCategoriesCollection.bulkInsert(Enumerator.enumerate(vCats))
         }
     }
   }
