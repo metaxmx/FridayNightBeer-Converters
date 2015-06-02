@@ -1,3 +1,5 @@
+package models
+
 import slick.driver.MySQLDriver.api._
 import slick.lifted.{ ProvenShape, ForeignKeyQuery }
 

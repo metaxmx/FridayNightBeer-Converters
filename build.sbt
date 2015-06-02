@@ -1,6 +1,6 @@
 name := """fnb-db-converter"""
 
-mainClass in Compile := Some("DbConverter")
+mainClass in Compile := Some("app.DbConverter")
 
 scalaVersion := "2.11.6"
 
@@ -8,7 +8,10 @@ resolvers += "Sonatype Snapshots" at "https://oss.sonatype.org/content/repositor
 
 libraryDependencies ++= List(
   "com.typesafe.slick" %% "slick" % "3.0.0",
-  "org.slf4j" % "slf4j-nop" % "1.6.4",
+  "org.slf4j" % "slf4j-api" % "1.7.5",
+  "org.apache.logging.log4j" % "log4j-slf4j-impl" % "2.3",
+  "org.apache.logging.log4j" % "log4j-api" % "2.3",
+  "org.apache.logging.log4j" % "log4j-core" % "2.3",
   "com.h2database" % "h2" % "1.3.175",
   "mysql" % "mysql-connector-java" % "latest.release",
   "org.reactivemongo" %% "reactivemongo" % "0.10.5.0.akka23",
