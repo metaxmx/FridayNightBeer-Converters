@@ -68,7 +68,7 @@ object DbConverter extends Logging {
 
   def insertFnbUsers(fnbUserCollection: BSONCollection, usersFuture: Future[Seq[ViscachaUser]]) = {
     usersFuture map {
-      _ map { user => FnbUser(BSONObjectID.generate, user.name, user.pw, user.name, user.fullname) }
+      _ map { user => FnbUser(user.id, user.name, user.pw, user.name, user.fullname) }
     } flatMap {
       vUsers =>
         fnbUserCollection.remove(BSONDocument()).flatMap {
@@ -84,7 +84,7 @@ object DbConverter extends Logging {
 
   def insertFnbCategories(fnbCategoriesCollection: BSONCollection, categoriesFuture: Future[Seq[ViscachaCategory]]) = {
     categoriesFuture map {
-      _ map { cat => FnbCategory(BSONObjectID.generate, cat.name, cat.position) }
+      _ map { cat => FnbCategory(cat.id, cat.name, cat.position) }
     } flatMap {
       vCats =>
         fnbCategoriesCollection.remove(BSONDocument()).flatMap {

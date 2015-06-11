@@ -3,7 +3,7 @@ package models
 import reactivemongo.bson._
 
 case class FnbUser(
-  _id: BSONObjectID,
+  _id: Int,
   username: String,
   password: String,
   displayName: String,
@@ -23,7 +23,7 @@ object FnbUser {
   implicit object FnbUserReader extends BSONDocumentReader[FnbUser] {
     def read(doc: BSONDocument): FnbUser = {
       FnbUser(
-        doc.getAs[BSONObjectID]("_id").get,
+        doc.getAs[Int]("_id").get,
         doc.getAs[String]("username").get,
         doc.getAs[String]("password").get,
         doc.getAs[String]("displayName").get,
@@ -34,7 +34,7 @@ object FnbUser {
 }
 
 case class FnbCategory(
-  _id: BSONObjectID,
+  _id: Int,
   name: String,
   position: Int)
 
@@ -50,7 +50,7 @@ object FnbCategory {
   implicit object FnbCategoryReader extends BSONDocumentReader[FnbCategory] {
     def read(doc: BSONDocument): FnbCategory = {
       FnbCategory(
-        doc.getAs[BSONObjectID]("_id").get,
+        doc.getAs[Int]("_id").get,
         doc.getAs[String]("name").get,
         doc.getAs[Int]("position").get)
     }
