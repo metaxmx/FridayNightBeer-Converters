@@ -68,7 +68,7 @@ object DbConverter extends Logging {
 
   def insertFnbUsers(fnbUserCollection: BSONCollection, usersFuture: Future[Seq[ViscachaUser]]) = {
     usersFuture map {
-      _ map { user => FnbUser(user.id, user.name, user.pw, user.name, user.fullname) }
+      _ map { user => FnbUser(user.id, user.name.toLowerCase, user.pw, user.name, user.fullname) }
     } flatMap {
       vUsers =>
         fnbUserCollection.remove(BSONDocument()).flatMap {
