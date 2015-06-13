@@ -9,9 +9,10 @@ import reactivemongo.api._
 import reactivemongo.api.collections.default.BSONCollection
 import play.api.libs.iteratee.Enumerator
 import scala.util._
-
 import models._
 import util._
+import util.Converter._
+import org.joda.time.DateTime
 
 object DbConverter extends Logging {
 
@@ -30,6 +31,8 @@ object DbConverter extends Logging {
         val mongoDb = mongoConnection.db("fnb")
         val fnbUserCollection = mongoDb.collection[BSONCollection]("users")
         val fnbCategoriesCollection = mongoDb.collection[BSONCollection]("categories")
+        val fnbForumsCollection = mongoDb.collection[BSONCollection]("forums")
+        val fnbTopicsCollection = mongoDb.collection[BSONCollection]("topics")
 
         // Convert Users
 
@@ -55,6 +58,28 @@ object DbConverter extends Logging {
         }
         Await.result(insertCategoriesFuture, Duration.Inf)
 
+        logger.info("Converting Categories and Forums ...")
+
+        val fetchForumsFuture = fetchViscachaForums
+        val insertForumsFuture = insertFnbForums(fnbForumsCollection, fetchForumsFuture)
+        insertForumsFuture.onComplete {
+          case Success(count) => logger.info(s"Successfull inserted $count forums")
+          case Failure(exc)   => logger.error("Error inserting forums", exc)
+        }
+        Await.result(insertForumsFuture, Duration.Inf)
+
+        // Convert Threads
+
+        logger.info("Converting Threads/Topics ...")
+
+        val fetchTopicsFuture = fetchViscachaTopics
+        val insertThreadsFuture = insertFnbThreads(fnbTopicsCollection, fetchTopicsFuture)
+        insertThreadsFuture.onComplete {
+          case Success(count) => logger.info(s"Successfull inserted $count threads")
+          case Failure(exc)   => logger.error("Error inserting threads", exc)
+        }
+        Await.result(insertThreadsFuture, Duration.Inf)
+
       } finally mongoConnection.close
 
     } finally viscachaDb.close
@@ -68,7 +93,7 @@ object DbConverter extends Logging {
 
   def insertFnbUsers(fnbUserCollection: BSONCollection, usersFuture: Future[Seq[ViscachaUser]]) = {
     usersFuture map {
-      _ map { user => FnbUser(user.id, user.name.toLowerCase, user.pw, user.name, user.fullname) }
+      _ map { user => FnbUser(user.id, user.name.toLowerCase, user.pw, user.name, checkEmpty(user.fullname).map(unescapeViscacha)) }
     } flatMap {
       vUsers =>
         fnbUserCollection.remove(BSONDocument()).flatMap {
@@ -84,13 +109,48 @@ object DbConverter extends Logging {
 
   def insertFnbCategories(fnbCategoriesCollection: BSONCollection, categoriesFuture: Future[Seq[ViscachaCategory]]) = {
     categoriesFuture map {
-      _ map { cat => FnbCategory(cat.id, cat.name, cat.position) }
+      _ map { cat => FnbCategory(cat.id, unescapeViscacha(cat.name), cat.position) }
     } flatMap {
       vCats =>
         fnbCategoriesCollection.remove(BSONDocument()).flatMap {
           lastError =>
-            vCats.foreach { user => logger.debug(s"Insert: $user") }
+            vCats.foreach { cat => logger.debug(s"Insert: $cat") }
             fnbCategoriesCollection.bulkInsert(Enumerator.enumerate(vCats))
+        }
+    }
+  }
+
+  def fetchViscachaForums(implicit viscachaDb: Database): Future[Seq[ViscachaForum]] =
+    viscachaDb.run(TableQuery[ViscachaForums].sortBy { _.position }.result)
+
+  def insertFnbForums(fnbForumsCollection: BSONCollection, forumsFuture: Future[Seq[ViscachaForum]]) = {
+    forumsFuture map {
+      _ map { forum =>
+        FnbForum(forum.id, unescapeViscacha(forum.name), Some(forum.description).map(unescapeViscacha),
+          forum.parent, forum.position, forum.readonly > 0)
+      }
+    } flatMap {
+      vForums =>
+        fnbForumsCollection.remove(BSONDocument()).flatMap {
+          lastError =>
+            vForums.foreach { forum => logger.debug(s"Insert: $forum") }
+            fnbForumsCollection.bulkInsert(Enumerator.enumerate(vForums))
+        }
+    }
+  }
+
+  def fetchViscachaTopics(implicit viscachaDb: Database): Future[Seq[ViscachaTopic]] =
+    viscachaDb.run(TableQuery[ViscachaTopics].sortBy { _.id }.result)
+
+  def insertFnbThreads(fnbThreadsCollection: BSONCollection, topicsFuture: Future[Seq[ViscachaTopic]]) = {
+    topicsFuture map {
+      _ map { topic => FnbThread(topic.id, topic.board, unescapeViscacha(topic.topic), topic.name, new DateTime(topic.date * 1000), topic.sticky > 0) }
+    } flatMap {
+      threads =>
+        fnbThreadsCollection.remove(BSONDocument()).flatMap {
+          lastError =>
+            threads.foreach { thread => logger.debug(s"Insert: $thread") }
+            fnbThreadsCollection.bulkInsert(Enumerator.enumerate(threads))
         }
     }
   }

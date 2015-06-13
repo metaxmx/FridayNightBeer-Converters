@@ -12,6 +12,8 @@ libraryDependencies ++= List(
   "org.apache.logging.log4j" % "log4j-slf4j-impl" % "2.3",
   "org.apache.logging.log4j" % "log4j-api" % "2.3",
   "org.apache.logging.log4j" % "log4j-core" % "2.3",
+  "commons-lang" % "commons-lang" % "2.6",
+  "joda-time" % "joda-time" % "2.3",
   "com.h2database" % "h2" % "1.3.175",
   "mysql" % "mysql-connector-java" % "latest.release",
   "org.reactivemongo" %% "reactivemongo" % "0.10.5.0.akka23",
