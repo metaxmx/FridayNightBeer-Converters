@@ -144,3 +144,71 @@ object FnbThread {
   }
 
 }
+
+/*
+ * --- Post/Reply ---
+ */
+
+case class FnbPostEdit(
+  user: Int,
+  date: DateTime,
+  reason: Option[String],
+  ip: String)
+
+object FnbPostEdit {
+
+  implicit object FnbPostEditWriter extends BSONDocumentWriter[FnbPostEdit] {
+    def write(edit: FnbPostEdit): BSONDocument = BSONDocument(
+      "user" -> edit.user,
+      "date" -> edit.date,
+      "reason" -> edit.reason,
+      "ip" -> edit.ip)
+  }
+
+  implicit object FnbPostEditReader extends BSONDocumentReader[FnbPostEdit] {
+    def read(doc: BSONDocument): FnbPostEdit = {
+      FnbPostEdit(
+        doc.getAs[Int]("user").get,
+        doc.getAs[DateTime]("date").get,
+        doc.getAs[String]("reason"),
+        doc.getAs[String]("ip").get)
+    }
+  }
+
+}
+
+case class FnbPost(
+  _id: Int,
+  thread: Int,
+  text: String,
+  userCreated: Int,
+  dateCreated: DateTime,
+  edits: Option[Seq[FnbPostEdit]])
+
+object FnbPost {
+
+  implicit object FnbPostWriter extends BSONDocumentWriter[FnbPost] {
+    def write(post: FnbPost): BSONDocument = BSONDocument(
+      "_id" -> post._id,
+      "thread" -> post.thread,
+      "text" -> post.text,
+      "created" -> BSONDocument(
+        "user" -> post.userCreated,
+        "date" -> post.dateCreated),
+      "edits" -> post.edits)
+  }
+
+  implicit object FnbPostReader extends BSONDocumentReader[FnbPost] {
+    def read(doc: BSONDocument): FnbPost = {
+      FnbPost(
+        doc.getAs[Int]("_id").get,
+        doc.getAs[Int]("thread").get,
+        doc.getAs[String]("text").get,
+        doc.getAs[BSONDocument]("created").get.getAs[Int]("user").get,
+        doc.getAs[BSONDocument]("created").get.getAs[DateTime]("date").get,
+        doc.getAs[Seq[FnbPostEdit]]("edits"))
+    }
+  }
+
+}
+  

@@ -113,3 +113,30 @@ class ViscachaTopics(tag: Tag)
   def * = (id, board, topic, name, date, status, sticky, question) <> (ViscachaTopic.tupled, ViscachaTopic.unapply)
 }
 
+/*
+ * --- Reply ---
+ */
+
+case class ViscachaReply(
+  id: Int,
+  topic_id: Int,
+  name: String,
+  comment: String,
+  ip: String,
+  date: Long,
+  edit: String)
+
+class ViscachaReplies(tag: Tag)
+  extends Table[ViscachaReply](tag, "v_replies") {
+
+  def id = column[Int]("id", O.PrimaryKey)
+  def topic_id = column[Int]("topic_id")
+  def name = column[String]("name")
+  def comment = column[String]("comment")
+  def ip = column[String]("ip")
+  def date = column[Long]("date")
+  def edit = column[String]("edit")
+
+  def * = (id, topic_id, name, comment, ip, date, edit) <> (ViscachaReply.tupled, ViscachaReply.unapply)
+}
+

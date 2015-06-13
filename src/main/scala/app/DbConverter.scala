@@ -13,6 +13,7 @@ import models._
 import util._
 import util.Converter._
 import org.joda.time.DateTime
+import scala.collection.mutable.WrappedArray
 
 object DbConverter extends Logging {
 
@@ -33,6 +34,7 @@ object DbConverter extends Logging {
         val fnbCategoriesCollection = mongoDb.collection[BSONCollection]("categories")
         val fnbForumsCollection = mongoDb.collection[BSONCollection]("forums")
         val fnbTopicsCollection = mongoDb.collection[BSONCollection]("topics")
+        val fnbPostsCollection = mongoDb.collection[BSONCollection]("posts")
 
         // Convert Users
 
@@ -44,7 +46,12 @@ object DbConverter extends Logging {
           case Success(count) => logger.info(s"Successfull inserted $count users")
           case Failure(exc)   => logger.error("Error inserting users", exc)
         }
+        val createUserMapFuture = fetchUsersFuture.map {
+          users =>
+            users.map { user => (user.name, user.id) }.toMap
+        }
         Await.result(insertUsersFuture, Duration.Inf)
+        val userMap = Await.result(createUserMapFuture, Duration.Inf)
 
         // Convert Categories and Forums
 
@@ -79,6 +86,18 @@ object DbConverter extends Logging {
           case Failure(exc)   => logger.error("Error inserting threads", exc)
         }
         Await.result(insertThreadsFuture, Duration.Inf)
+
+        // Convert Posts
+
+        logger.info("Converting Threads/Topics ...")
+
+        val fetchRepliesFuture = fetchViscachaReplies
+        val insertPostsFuture = insertFnbPosts(fnbPostsCollection, fetchRepliesFuture, userMap)
+        insertPostsFuture.onComplete {
+          case Success(count) => logger.info(s"Successfull inserted $count posts")
+          case Failure(exc)   => logger.error("Error inserting posts", exc)
+        }
+        Await.result(insertPostsFuture, Duration.Inf)
 
       } finally mongoConnection.close
 
@@ -153,6 +172,44 @@ object DbConverter extends Logging {
             fnbThreadsCollection.bulkInsert(Enumerator.enumerate(threads))
         }
     }
+  }
+
+  def fetchViscachaReplies(implicit viscachaDb: Database): Future[Seq[ViscachaReply]] =
+    viscachaDb.run(TableQuery[ViscachaReplies].sortBy { _.id }.result)
+
+  def insertFnbPosts(fnbPostsCollection: BSONCollection, repliesFuture: Future[Seq[ViscachaReply]], userMap: Map[String, Int]) = {
+    repliesFuture map {
+      _ map { reply =>
+        FnbPost(
+          reply.id,
+          reply.topic_id,
+          unescapeViscacha(reply.comment),
+          reply.name.toInt,
+          new DateTime(reply.date * 1000),
+          parseEdits(reply.edit, userMap))
+      }
+    } flatMap {
+      posts =>
+        fnbPostsCollection.remove(BSONDocument()).flatMap {
+          lastError =>
+            posts.foreach { post => logger.debug(s"Insert: $post") }
+            fnbPostsCollection.bulkInsert(Enumerator.enumerate(posts))
+        }
+    }
+  }
+
+  def parseEdits(edits: String, userMap: Map[String, Int]): Option[Seq[FnbPostEdit]] = checkEmpty(edits) flatMap {
+    edit =>
+      {
+        val editObjs = wrapRefArray(edit.split('\n')) map {
+          _.split('\t')
+        } filter {
+          parts => userMap contains parts(0)
+        } map {
+          parts => FnbPostEdit(userMap get parts(0) get, new DateTime(parts(1).toLong * 1000), checkEmpty(parts(2)), parts(3))
+        }
+        checkEmpty(editObjs)
+      }
   }
 
 }

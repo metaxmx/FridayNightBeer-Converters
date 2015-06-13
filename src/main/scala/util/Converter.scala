@@ -10,5 +10,8 @@ object Converter {
     case "" | null => None
     case s         => Some(s)
   }
+  
+  def checkEmpty[T](seq: Seq[T]): Option[Seq[T]] =
+    if (seq isEmpty) None else Some(seq)
 
 }
