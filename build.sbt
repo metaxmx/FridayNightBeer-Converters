@@ -4,17 +4,17 @@ mainClass in Compile := Some("app.DbConverter")
 
 scalaVersion := "2.11.6"
 
+lazy val fnbDatamodel = RootProject(file("../fnb-play/modules/datamodel"))
+
+lazy val fnbConverter = (project in file(".")).dependsOn(fnbDatamodel)
+
 resolvers += "Sonatype Snapshots" at "https://oss.sonatype.org/content/repositories/snapshots/"
 
 libraryDependencies ++= List(
   "com.typesafe.slick" %% "slick" % "3.0.0",
   "org.slf4j" % "slf4j-api" % "1.7.5",
-  "org.apache.logging.log4j" % "log4j-slf4j-impl" % "2.3",
-  "org.apache.logging.log4j" % "log4j-api" % "2.3",
-  "org.apache.logging.log4j" % "log4j-core" % "2.3",
   "commons-lang" % "commons-lang" % "2.6",
-  "joda-time" % "joda-time" % "2.3",
-  "com.h2database" % "h2" % "1.3.175",
+  "ch.qos.logback" % "logback-classic" % "1.1.1",
   "mysql" % "mysql-connector-java" % "latest.release",
   "org.reactivemongo" %% "reactivemongo" % "0.10.5.0.akka23",
   "org.scalatest" %% "scalatest" % "2.2.4" % "test"
@@ -23,3 +23,6 @@ libraryDependencies ++= List(
 EclipseKeys.withSource := true
 
 EclipseKeys.createSrc := EclipseCreateSrc.Default + EclipseCreateSrc.Resource
+
+scalacOptions += "-feature"
+scalacOptions += "-deprecation"

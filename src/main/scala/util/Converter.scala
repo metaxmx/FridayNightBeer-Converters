@@ -1,6 +1,7 @@
 package util
 
 import org.apache.commons.lang.StringEscapeUtils
+import scala.language.postfixOps
 
 object Converter {
 
