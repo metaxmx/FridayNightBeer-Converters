@@ -44,40 +44,15 @@ class DbConverter extends Logging {
       try {
 
         val process = Future.successful(ViscachaForumData()) flatMap {
-          data =>
-            fetchViscachaUsers map {
-              users =>
-                logger info s"Fetched ${users.size} Users"
-                data withUsers users
-            }
+          fetchData[ViscachaUser]("Users", fetchViscachaUsers, (data, entities) => data withUsers entities)
         } flatMap {
-          data =>
-            fetchViscachaCategories map {
-              categories =>
-                logger info s"Fetched ${categories.size} Categories"
-                data withCategories categories
-            }
+          fetchData[ViscachaCategory]("Categories", fetchViscachaCategories, (data, entities) => data withCategories entities)
         } flatMap {
-          data =>
-            fetchViscachaForums map {
-              forums =>
-                logger info s"Fetched ${forums.size} Forums"
-                data withForums forums
-            }
+          fetchData[ViscachaForum]("Forums", fetchViscachaForums, (data, entities) => data withForums entities)
         } flatMap {
-          data =>
-            fetchViscachaTopics map {
-              topics =>
-                logger info s"Fetched ${topics.size} Topics"
-                data withTopics topics
-            }
+          fetchData[ViscachaTopic]("Topics", fetchViscachaTopics, (data, entities) => data withTopics entities)
         } flatMap {
-          data =>
-            fetchViscachaReplies map {
-              replies =>
-                logger info s"Fetched ${replies.size} Replies"
-                data withReplies replies
-            }
+          fetchData[ViscachaReply]("Replies", fetchViscachaReplies, (data, entities) => data withReplies entities)
         } map {
           new AggregateData(_).aggregate
         } flatMap {
@@ -113,6 +88,14 @@ class DbConverter extends Logging {
 
   def fetchViscachaReplies(implicit db: Database) = db.run(TableQuery[ViscachaReplies].sortBy { _.id }.result)
 
+  def fetchData[T](typeName: String, fetch: => Future[Seq[T]], aggregate: (ViscachaForumData, Seq[T]) => ViscachaForumData): ViscachaForumData => Future[ViscachaForumData] =
+    data =>
+      fetch map {
+        entities =>
+          logger info s"Fetched ${entities.size} $typeName"
+          aggregate(data, entities)
+      }
+
   def insertData[T](collectionName: String)(resolve: FnbForumData => Seq[T])(implicit db: DB, writes: Writes[T]): FnbForumData => Future[FnbForumData] =
     data => {
       val collection = db.collection[JSONCollection](collectionName)
@@ -125,7 +108,6 @@ class DbConverter extends Logging {
         inserts =>
           logger info s"Inserted $inserts entries into ${collection.name}"
           data
-
       }
     }
 
