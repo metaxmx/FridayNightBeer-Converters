@@ -39,8 +39,6 @@ class DbConverter extends Logging {
 
       implicit val mongoDb = mongoConnection.db("fnb")
 
-      // Execute
-
       try {
 
         val process = Future.successful(ViscachaForumData()) flatMap {
@@ -64,8 +62,6 @@ class DbConverter extends Logging {
         }
 
         Await.result(process, Duration.Inf)
-
-        // Stop Execute
 
       } finally {
         val closeFuture = mongoConnection.close
