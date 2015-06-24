@@ -44,6 +44,8 @@ class DbConverter extends Logging {
         val process = Future.successful(ViscachaForumData()) flatMap {
           fetchData[ViscachaUser]("Users", fetchViscachaUsers, (data, entities) => data withUsers entities)
         } flatMap {
+          fetchData[ViscachaGroup]("Groups", fetchViscachaGroups, (data, entities) => data withGroups entities)
+        } flatMap {
           fetchData[ViscachaCategory]("Categories", fetchViscachaCategories, (data, entities) => data withCategories entities)
         } flatMap {
           fetchData[ViscachaForum]("Forums", fetchViscachaForums, (data, entities) => data withForums entities)
@@ -64,7 +66,7 @@ class DbConverter extends Logging {
         Await.result(process, Duration.Inf)
 
       } finally {
-        val closeFuture = mongoConnection.close
+        mongoConnection.close
         mongoConnection.actorSystem.shutdown()
       }
 
@@ -75,6 +77,8 @@ class DbConverter extends Logging {
   }
 
   def fetchViscachaUsers(implicit db: Database) = db.run(TableQuery[ViscachaUsers].result)
+
+  def fetchViscachaGroups(implicit db: Database) = db.run(TableQuery[ViscachaGroups].result)
 
   def fetchViscachaCategories(implicit db: Database) = db.run(TableQuery[ViscachaCategories].sortBy { _.position }.result)
 

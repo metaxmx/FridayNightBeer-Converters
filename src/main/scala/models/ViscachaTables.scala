@@ -41,6 +41,61 @@ class ViscachaUsers(tag: Tag)
 }
 
 /*
+ * --- Group ---
+ */
+
+case class ViscachaGroup(
+  id: Int,
+  admin: Boolean,
+  guest: Boolean,
+  members: Boolean,
+  profile: Boolean,
+  pm: Boolean,
+  wwo: Boolean,
+  search: Boolean,
+  team: Boolean,
+  usepic: Boolean,
+  useabout: Boolean,
+  usesignature: Boolean,
+  downloadfiles: Boolean,
+  forum: Boolean,
+  posttopics: Boolean,
+  postreplies: Boolean,
+  addvotes: Boolean,
+  attachments: Boolean,
+  edit: Boolean,
+  voting: Boolean,
+  title: String)
+
+class ViscachaGroups(tag: Tag)
+  extends Table[ViscachaGroup](tag, "v_groups") {
+
+  def id = column[Int]("id", O.PrimaryKey)
+  def admin = column[Boolean]("admin")
+  def guest = column[Boolean]("guest")
+  def members = column[Boolean]("members")
+  def profile = column[Boolean]("profile")
+  def pm = column[Boolean]("pm")
+  def wwo = column[Boolean]("wwo")
+  def search = column[Boolean]("search")
+  def team = column[Boolean]("team")
+  def usepic = column[Boolean]("usepic")
+  def useabout = column[Boolean]("useabout")
+  def usesignature = column[Boolean]("usesignature")
+  def downloadfiles = column[Boolean]("downloadfiles")
+  def forum = column[Boolean]("forum")
+  def posttopics = column[Boolean]("posttopics")
+  def postreplies = column[Boolean]("postreplies")
+  def addvotes = column[Boolean]("addvotes")
+  def attachments = column[Boolean]("attachments")
+  def edit = column[Boolean]("edit")
+  def voting = column[Boolean]("voting")
+  def title = column[String]("title")
+
+  def * = (id, admin, guest, members, profile, pm, wwo, search, team, usepic, useabout, usesignature, downloadfiles, forum, posttopics, postreplies, addvotes, attachments, edit, voting, title) <> (ViscachaGroup.tupled, ViscachaGroup.unapply)
+}
+
+/*
  * --- Category ---
  */
 
