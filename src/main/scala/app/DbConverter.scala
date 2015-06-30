@@ -61,6 +61,10 @@ class DbConverter extends Logging {
           insertData(ForumCategory.collectionName) { _.categories }
         } flatMap {
           insertData(Forum.collectionName) { _.forums }
+        } flatMap {
+          insertData(Thread.collectionName) { _.threads }
+        } flatMap {
+          insertData(Post.collectionName) { _.posts }
         }
 
         Await.result(process, Duration.Inf)

@@ -5,6 +5,7 @@ import util.Logging
 import util.Converter._
 import org.joda.time.DateTime
 import scala.language.postfixOps
+import com.github.nscala_time.time.OrderingImplicits.DateTimeOrdering
 
 class AggregateData(viscachaData: ViscachaForumData) extends Logging {
 
@@ -25,21 +26,9 @@ class AggregateData(viscachaData: ViscachaForumData) extends Logging {
       cat => ForumCategory(cat.id, unescapeViscacha(cat.name), cat.position, None)
     }
 
-    val forums = viscachaData.forums map {
-      forum =>
-        Forum(forum.id, unescapeViscacha(forum.name), Some(forum.description).map(unescapeViscacha),
-          forum.parent, forum.position, forum.readonly > 0, None)
-    }
-
-    // TODO: Create real type
-    val threads = viscachaData.topics map {
-      topic => FnbThread(topic.id, topic.board, unescapeViscacha(topic.topic), topic.name, new DateTime(topic.date * 1000), topic.sticky > 0)
-    }
-
-    // TODO: Create real type
     val posts = viscachaData.replies map {
       reply =>
-        FnbPost(
+        Post(
           reply.id,
           reply.topic_id,
           unescapeViscacha(reply.comment),
@@ -48,10 +37,31 @@ class AggregateData(viscachaData: ViscachaForumData) extends Logging {
           parseEdits(reply.edit))
     }
 
-    FnbForumData(users, groups, categories, forums)
+    val postsByThread = posts groupBy { _.thread } mapValues { _ sortBy { _.dateCreated } }
+    val firstPostByThread = postsByThread mapValues { _.head }
+    val lastChangeByThread = postsByThread mapValues { _.map {latestChange(_)}.sortBy {_.date}.reverse } mapValues { _.head }
+
+    val forums = viscachaData.forums map {
+      forum =>
+        Forum(forum.id, unescapeViscacha(forum.name), Some(forum.description).map(unescapeViscacha),
+          forum.parent, forum.position, forum.readonly > 0, None)
+    }
+
+    val threads = viscachaData.topics map {
+      topic => {
+        val firstPost = firstPostByThread(topic.id)
+        val latestChange = lastChangeByThread(topic.id)
+        val posts = postsByThread(topic.id)
+        Thread(topic.id, unescapeViscacha(topic.topic), topic.board,
+          ThreadPostData(firstPost.userCreated, firstPost.dateCreated),
+          latestChange, posts.size, (topic.sticky > 0), None)
+      }
+    }
+
+    FnbForumData(users, groups, categories, forums, threads, posts)
   }
 
-  def parseEdits(edits: String): Option[Seq[FnbPostEdit]] = checkEmpty(edits) flatMap {
+  def parseEdits(edits: String): Option[Seq[PostEdit]] = checkEmpty(edits) flatMap {
     edit =>
       {
         val editObjs = wrapRefArray(edit.split('\n')) map {
@@ -59,10 +69,18 @@ class AggregateData(viscachaData: ViscachaForumData) extends Logging {
         } filter {
           parts => userMap contains parts(0)
         } map {
-          parts => FnbPostEdit(userMap get parts(0) get, new DateTime(parts(1).toLong * 1000), checkEmpty(parts(2)), parts(3))
+          parts => PostEdit(userMap get parts(0) get, new DateTime(parts(1).toLong * 1000), checkEmpty(parts(2)), parts(3))
         }
         checkEmpty(editObjs)
       }
+  }
+  
+  def initialPost(post: Post): ThreadPostData = ThreadPostData(post.userCreated, post.dateCreated)
+  
+  def latestChange(post: Post): ThreadPostData = {
+    val p = initialPost(post)
+    val e = post.edits.map { _ map { edit => ThreadPostData(edit.user, edit.date) } } getOrElse(Seq())
+    (p +: e).maxBy { _.date }
   }
 
 }

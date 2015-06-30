@@ -34,4 +34,6 @@ case class FnbForumData(
   users: Seq[User],
   groups: Seq[Group],
   categories: Seq[ForumCategory],
-  forums: Seq[Forum])
+  forums: Seq[Forum],
+  threads: Seq[Thread],
+  posts: Seq[Post])
