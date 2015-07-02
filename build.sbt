@@ -17,7 +17,6 @@ libraryDependencies ++= List(
   "ch.qos.logback" % "logback-classic" % "1.1.1",
   "mysql" % "mysql-connector-java" % "latest.release",
   "org.reactivemongo" %% "reactivemongo" % "0.10.5.0.akka23",
-  "com.github.nscala-time" %% "nscala-time" % "2.0.0",
   "org.scalatest" %% "scalatest" % "2.2.4" % "test"
 )
 

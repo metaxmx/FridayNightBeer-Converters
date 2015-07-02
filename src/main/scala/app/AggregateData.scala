@@ -5,7 +5,7 @@ import util.Logging
 import util.Converter._
 import org.joda.time.DateTime
 import scala.language.postfixOps
-import com.github.nscala_time.time.OrderingImplicits.DateTimeOrdering
+import util.Joda._
 
 class AggregateData(viscachaData: ViscachaForumData) extends Logging {
 
