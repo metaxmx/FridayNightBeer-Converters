@@ -12,9 +12,10 @@ import util._
 import util.Converter._
 import org.joda.time.DateTime
 import scala.collection.mutable.WrappedArray
-import play.modules.reactivemongo.json.collection.JSONCollection
-import play.api.libs.json.Json
-import play.api.libs.json.Writes
+import reactivemongo.api.collections.bson.BSONCollection
+import reactivemongo.bson._
+import reactivemongo.bson.BSONWriter
+import reactivemongo.api.commands.MultiBulkWriteResult
 
 object DbConverter {
 
@@ -100,16 +101,15 @@ class DbConverter extends Logging {
           aggregate(data, entities)
       }
 
-  def insertData[T](collectionName: String)(resolve: FnbForumData => Seq[T])(implicit db: DB, writes: Writes[T]): FnbForumData => Future[FnbForumData] =
+  def insertData[T](collectionName: String)(resolve: FnbForumData => Seq[T])(implicit db: DB, writer: BSONDocumentWriter[T]): FnbForumData => Future[FnbForumData] =
     data => {
-      val collection = db.collection[JSONCollection](collectionName)
-      val entities = resolve(data)
-      collection.remove(Json.obj()).flatMap {
+      val collection = db.collection[BSONCollection](collectionName)
+      val entities = resolve(data).map(writer.write(_)).toStream
+      collection.remove(BSONDocument()).flatMap {
         lastError =>
-          entities.foreach { entity => logger.debug(s"Insert: $entity") }
-          collection.bulkInsert(Enumerator.enumerate(entities))
+          collection.bulkInsert(entities, true)
       } map {
-        inserts =>
+        case MultiBulkWriteResult(ok, inserts, _, _, _, _, _, _, _) =>
           logger info s"Inserted $inserts entries into ${collection.name}"
           data
       }

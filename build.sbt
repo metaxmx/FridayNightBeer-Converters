@@ -16,7 +16,7 @@ libraryDependencies ++= List(
   "commons-lang" % "commons-lang" % "2.6",
   "ch.qos.logback" % "logback-classic" % "1.1.1",
   "mysql" % "mysql-connector-java" % "latest.release",
-  "org.reactivemongo" %% "reactivemongo" % "0.10.5.0.akka23",
+  "org.reactivemongo" %% "reactivemongo" % "0.11.0.play23",
   "org.scalatest" %% "scalatest" % "2.2.4" % "test"
 )
 
