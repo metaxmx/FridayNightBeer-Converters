@@ -22,6 +22,8 @@ class AggregateData(viscachaData: ViscachaForumData) extends Logging {
     // TODO
     val groups = Seq[Group]()
 
+    val guestGroupOpt = viscachaData.groups.find { _.guest }
+
     val categories = viscachaData.categories map {
       cat => ForumCategory(cat.id, unescapeViscacha(cat.name), cat.position, None)
     }
@@ -39,23 +41,34 @@ class AggregateData(viscachaData: ViscachaForumData) extends Logging {
 
     val postsByThread = posts groupBy { _.thread } mapValues { _ sortBy { _.dateCreated } }
     val firstPostByThread = postsByThread mapValues { _.head }
-    val lastChangeByThread = postsByThread mapValues { _.map {latestChange(_)}.sortBy {_.date}.reverse } mapValues { _.head }
+    val lastChangeByThread = postsByThread mapValues { _.map { latestChange(_) }.sortBy { _.date }.reverse } mapValues { _.head }
+
+    val forumIdsWithGuestAccess = viscachaData.forumPermissions.filter {
+      p => p.group == 0 || guestGroupOpt.exists { _.id == p.group }
+    }.filter { _.forumAccess }.map { _.forum }.toSet
 
     val forums = viscachaData.forums map {
       forum =>
-        Forum(forum.id, unescapeViscacha(forum.name), Some(forum.description).map(unescapeViscacha),
-          forum.parent, forum.position, forum.readonly > 0, None)
+        {
+          val accessRestriction = if (forumIdsWithGuestAccess.contains(forum.id))
+            None
+          else
+            Some(AccessRestriction(None, None, None, None, Some(false)))
+          Forum(forum.id, unescapeViscacha(forum.name), Some(forum.description).map(unescapeViscacha),
+            forum.parent, forum.position, forum.readonly > 0, accessRestriction)
+        }
     }
 
     val threads = viscachaData.topics map {
-      topic => {
-        val firstPost = firstPostByThread(topic.id)
-        val latestChange = lastChangeByThread(topic.id)
-        val posts = postsByThread(topic.id)
-        Thread(topic.id, unescapeViscacha(topic.topic), topic.board,
-          ThreadPostData(firstPost.userCreated, firstPost.dateCreated),
-          latestChange, posts.size, (topic.sticky > 0), None)
-      }
+      topic =>
+        {
+          val firstPost = firstPostByThread(topic.id)
+          val latestChange = lastChangeByThread(topic.id)
+          val posts = postsByThread(topic.id)
+          Thread(topic.id, unescapeViscacha(topic.topic), topic.board,
+            ThreadPostData(firstPost.userCreated, firstPost.dateCreated),
+            latestChange, posts.size, (topic.sticky > 0), None)
+        }
     }
 
     FnbForumData(users, groups, categories, forums, threads, posts)
@@ -74,12 +87,12 @@ class AggregateData(viscachaData: ViscachaForumData) extends Logging {
         checkEmpty(editObjs)
       }
   }
-  
+
   def initialPost(post: Post): ThreadPostData = ThreadPostData(post.userCreated, post.dateCreated)
-  
+
   def latestChange(post: Post): ThreadPostData = {
     val p = initialPost(post)
-    val e = post.edits.map { _ map { edit => ThreadPostData(edit.user, edit.date) } } getOrElse(Seq())
+    val e = post.edits.map { _ map { edit => ThreadPostData(edit.user, edit.date) } } getOrElse (Seq())
     (p +: e).maxBy { _.date }
   }
 

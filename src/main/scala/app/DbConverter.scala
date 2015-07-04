@@ -54,6 +54,8 @@ class DbConverter extends Logging {
           fetchData[ViscachaTopic]("Topics", fetchViscachaTopics, (data, entities) => data withTopics entities)
         } flatMap {
           fetchData[ViscachaReply]("Replies", fetchViscachaReplies, (data, entities) => data withReplies entities)
+        } flatMap {
+          fetchData[ViscachaForumPermission]("Forum Permissions", fetchViscachaForumPermissions, (data, entities) => data withForumPermission entities)
         } map {
           new AggregateData(_).aggregate
         } flatMap {
@@ -92,6 +94,8 @@ class DbConverter extends Logging {
   def fetchViscachaTopics(implicit db: Database) = db.run(TableQuery[ViscachaTopics].sortBy { _.id }.result)
 
   def fetchViscachaReplies(implicit db: Database) = db.run(TableQuery[ViscachaReplies].sortBy { _.id }.result)
+
+  def fetchViscachaForumPermissions(implicit db: Database) = db.run(TableQuery[ViscachaForumPermissions].sortBy { _.id }.result)
 
   def fetchData[T](typeName: String, fetch: => Future[Seq[T]], aggregate: (ViscachaForumData, Seq[T]) => ViscachaForumData): ViscachaForumData => Future[ViscachaForumData] =
     data =>

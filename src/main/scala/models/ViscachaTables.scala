@@ -140,6 +140,41 @@ class ViscachaForums(tag: Tag)
 }
 
 /*
+ * Forum Group Restrictions
+ */
+
+case class ViscachaForumPermission(
+  id: Int,
+  group: Int,
+  forum: Int,
+  forumAccess: Boolean,
+  downloadFiles: Boolean,
+  createTopics: Boolean,
+  createReplies: Boolean,
+  createPolls: Boolean,
+  attachments: Boolean,
+  editPosts: Boolean,
+  vote: Boolean)
+
+class ViscachaForumPermissions(tag: Tag)
+  extends Table[ViscachaForumPermission](tag, "v_fgroups") {
+
+  def id = column[Int]("fid", O.PrimaryKey)
+  def group = column[Int]("gid")
+  def forum = column[Int]("bid")
+  def forumAccess = column[Boolean]("f_forum")
+  def downloadFiles = column[Boolean]("f_downloadfiles")
+  def createTopics = column[Boolean]("f_posttopics")
+  def createReplies = column[Boolean]("f_postreplies")
+  def createPolls = column[Boolean]("f_addvotes")
+  def attachments = column[Boolean]("f_attachments")
+  def editPosts = column[Boolean]("f_edit")
+  def vote = column[Boolean]("f_voting")
+
+  def * = (id, group, forum, forumAccess, downloadFiles, createTopics, createReplies, createPolls, attachments, editPosts, vote) <> (ViscachaForumPermission.tupled, ViscachaForumPermission.unapply)
+}
+
+/*
  * --- Topic ---
  */
 
