@@ -16,7 +16,9 @@ class AggregateData(viscachaData: ViscachaForumData) extends Logging {
     logger info "Aggregating data ..."
 
     val users = viscachaData.users map {
-      user => User(user.id, user.name.toLowerCase, user.pw, user.name, checkEmpty(user.fullname).map(unescapeViscacha), None)
+      user =>
+        User(user.id, user.name.toLowerCase, user.pw, user.name, checkEmpty(user.fullname).map(unescapeViscacha),
+          checkEmpty(user.pic).map { _.replace("uploads/pics/", "") }, None)
     }
 
     // TODO
