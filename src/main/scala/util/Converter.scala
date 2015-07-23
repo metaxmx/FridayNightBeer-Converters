@@ -18,6 +18,6 @@ object Converter {
 
   def convertContent(input: String): String = nl2br(input)
 
-  def nl2br(input: String): String = input.replaceAll("\n|\r|\r\n", "<br>")
+  def nl2br(input: String): String = input.replaceAll("\r\n|\n|\r", "<br/>")
 
 }
