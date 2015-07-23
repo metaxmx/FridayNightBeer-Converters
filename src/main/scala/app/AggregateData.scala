@@ -4,12 +4,11 @@ import models._
 import util.Logging
 import util.Converter._
 import org.joda.time.DateTime
-import scala.language.postfixOps
 import util.Joda._
 
 class AggregateData(viscachaData: ViscachaForumData) extends Logging {
 
-  lazy val userMap = viscachaData.users map { user => user.name -> user.id } toMap
+  lazy val userMap = viscachaData.users.map { user => user.name -> user.id }.toMap
 
   def aggregate: FnbForumData = {
 
@@ -35,7 +34,7 @@ class AggregateData(viscachaData: ViscachaForumData) extends Logging {
         Post(
           reply.id,
           reply.topic_id,
-          unescapeViscacha(reply.comment),
+          convertContent(reply.comment),
           reply.name.toInt,
           new DateTime(reply.date * 1000),
           parseEdits(reply.edit))
@@ -84,7 +83,7 @@ class AggregateData(viscachaData: ViscachaForumData) extends Logging {
         } filter {
           parts => userMap contains parts(0)
         } map {
-          parts => PostEdit(userMap get parts(0) get, new DateTime(parts(1).toLong * 1000), checkEmpty(parts(2)), parts(3))
+          parts => PostEdit(userMap.get(parts(0)).get, new DateTime(parts(1).toLong * 1000), checkEmpty(parts(2)), parts(3))
         }
         checkEmpty(editObjs)
       }
