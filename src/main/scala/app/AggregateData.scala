@@ -1,6 +1,7 @@
 package app
 
 import models._
+import models.ForumPermissions._
 import util.Logging
 import util.Converter._
 import org.joda.time.DateTime
@@ -51,12 +52,12 @@ class AggregateData(viscachaData: ViscachaForumData) extends Logging {
     val forums = viscachaData.forums map {
       forum =>
         {
-          val accessRestriction = if (forumIdsWithGuestAccess.contains(forum.id))
-            None
+          val forumPermissions: Seq[AccessRule] = if (forumIdsWithGuestAccess.contains(forum.id))
+            Seq()
           else
-            Some(AccessRestriction(None, None, None, None, false))
+            Seq(AccessRule(Access.toString, None, None, None, None, false))
           Forum(forum.id, unescapeViscacha(forum.name), Some(forum.description).map(unescapeViscacha),
-            forum.parent, forum.position, forum.readonly > 0, accessRestriction)
+            forum.parent, forum.position, forum.readonly > 0, forumPermissions)
         }
     }
 
