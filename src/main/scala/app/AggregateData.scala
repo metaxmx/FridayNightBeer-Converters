@@ -12,7 +12,7 @@ class AggregateData(viscachaData: ViscachaForumData) extends Logging {
 
   def aggregate: FnbForumData = {
 
-    logger info "Aggregating data ..."
+    logger.info("Aggregating data ...")
 
     val users = viscachaData.users map {
       user =>
@@ -54,7 +54,7 @@ class AggregateData(viscachaData: ViscachaForumData) extends Logging {
           val accessRestriction = if (forumIdsWithGuestAccess.contains(forum.id))
             None
           else
-            Some(AccessRestriction(None, None, None, None, Some(false)))
+            Some(AccessRestriction(None, None, None, None, false))
           Forum(forum.id, unescapeViscacha(forum.name), Some(forum.description).map(unescapeViscacha),
             forum.parent, forum.position, forum.readonly > 0, accessRestriction)
         }
@@ -96,5 +96,11 @@ class AggregateData(viscachaData: ViscachaForumData) extends Logging {
     val e = post.edits.map { _ map { edit => ThreadPostData(edit.user, edit.date) } } getOrElse (Seq())
     (p +: e).maxBy { _.date }
   }
+
+}
+
+object AggregateData {
+
+  def apply(viscachaData: ViscachaForumData): FnbForumData = new AggregateData(viscachaData).aggregate
 
 }

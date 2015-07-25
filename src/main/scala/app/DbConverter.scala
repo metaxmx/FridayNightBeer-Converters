@@ -16,6 +16,7 @@ import reactivemongo.api.collections.bson.BSONCollection
 import reactivemongo.bson._
 import reactivemongo.bson.BSONWriter
 import reactivemongo.api.commands.MultiBulkWriteResult
+import scala.concurrent.Promise
 
 object DbConverter {
 
@@ -27,11 +28,11 @@ class DbConverter extends Logging {
 
   def process = {
 
-    logger info "Starting DbConverter ..."
+    logger.info("Starting DbConverter ...")
 
-    logger info "Connecting to DB ..."
+    logger.info("Connecting to DB ...")
 
-    implicit val viscachaDb = Database forConfig "viscacha"
+    implicit val viscachaDb = Database.forConfig("viscacha")
 
     val mongoDriver = new MongoDriver
     val mongoConnection = mongoDriver.connection(List("localhost"))
@@ -42,42 +43,35 @@ class DbConverter extends Logging {
 
       try {
 
-        val process = Future.successful(ViscachaForumData()) flatMap {
-          fetchData[ViscachaUser]("Users", fetchViscachaUsers, (data, entities) => data withUsers entities)
-        } flatMap {
-          fetchData[ViscachaGroup]("Groups", fetchViscachaGroups, (data, entities) => data withGroups entities)
-        } flatMap {
-          fetchData[ViscachaCategory]("Categories", fetchViscachaCategories, (data, entities) => data withCategories entities)
-        } flatMap {
-          fetchData[ViscachaForum]("Forums", fetchViscachaForums, (data, entities) => data withForums entities)
-        } flatMap {
-          fetchData[ViscachaTopic]("Topics", fetchViscachaTopics, (data, entities) => data withTopics entities)
-        } flatMap {
-          fetchData[ViscachaReply]("Replies", fetchViscachaReplies, (data, entities) => data withReplies entities)
-        } flatMap {
-          fetchData[ViscachaForumPermission]("Forum Permissions", fetchViscachaForumPermissions, (data, entities) => data withForumPermission entities)
-        } map {
-          new AggregateData(_).aggregate
-        } flatMap {
-          insertData(User.collectionName) { _.users }
-        } flatMap {
-          insertData(ForumCategory.collectionName) { _.categories }
-        } flatMap {
-          insertData(Forum.collectionName) { _.forums }
-        } flatMap {
-          insertData(Thread.collectionName) { _.threads }
-        } flatMap {
-          insertData(Post.collectionName) { _.posts }
-        }
+        val aggregateDataFuture = for {
+          users <- fetchViscachaUsers
+          groups <- fetchViscachaGroups
+          categories <- fetchViscachaCategories
+          forums <- fetchViscachaForums
+          topics <- fetchViscachaTopics
+          replies <- fetchViscachaReplies
+          permissions <- fetchViscachaForumPermissions
+        } yield AggregateData(ViscachaForumData(users, groups, categories, forums, topics, replies, permissions))
 
-        Await.result(process, Duration.Inf)
+        val insertFuture = for {
+          aggregateData <- aggregateDataFuture
+          insertedUsers <- insertData(aggregateData.users)
+          insertedCategories <- insertData(aggregateData.categories)
+          insertedForums <- insertData(aggregateData.forums)
+          insertedThreads <- insertData(aggregateData.threads)
+          insertedPosts <- insertData(aggregateData.posts)
+        } yield (insertedUsers + insertedCategories + insertedForums + insertedThreads + insertedPosts)
+
+        val inserted = Await.result(insertFuture, Duration.Inf)
+
+        logger.info(s"Successfully inserted $inserted entities")
 
       } finally {
-        mongoConnection.close
+        mongoConnection.close()
         mongoConnection.actorSystem.shutdown()
       }
 
-    } finally viscachaDb.close
+    } finally viscachaDb.close()
 
     logger.info("All Done.")
 
@@ -97,26 +91,16 @@ class DbConverter extends Logging {
 
   def fetchViscachaForumPermissions(implicit db: Database) = db.run(TableQuery[ViscachaForumPermissions].sortBy { _.id }.result)
 
-  def fetchData[T](typeName: String, fetch: => Future[Seq[T]], aggregate: (ViscachaForumData, Seq[T]) => ViscachaForumData): ViscachaForumData => Future[ViscachaForumData] =
-    data =>
-      fetch map {
-        entities =>
-          logger info s"Fetched ${entities.size} $typeName"
-          aggregate(data, entities)
-      }
-
-  def insertData[T](collectionName: String)(resolve: FnbForumData => Seq[T])(implicit db: DB, writer: BSONDocumentWriter[T]): FnbForumData => Future[FnbForumData] =
-    data => {
-      val collection = db.collection[BSONCollection](collectionName)
-      val entities = resolve(data).map(writer.write(_)).toStream
-      collection.remove(BSONDocument()).flatMap {
-        lastError =>
-          collection.bulkInsert(entities, true)
-      } map {
-        case MultiBulkWriteResult(ok, inserts, _, _, _, _, _, _, _) =>
-          logger info s"Inserted $inserts entries into ${collection.name}"
-          data
-      }
+  def insertData[T](data: Seq[T])(implicit db: DB, writer: BSONDocumentWriter[T], baseModel: BaseModel[T]): Future[Int] = {
+    val collection = db.collection[BSONCollection](baseModel.collectionName)
+    val entities = data.map(writer.write(_)).toStream
+    collection.remove(BSONDocument()).flatMap {
+      _ => collection.bulkInsert(entities, true)
+    } map {
+      case MultiBulkWriteResult(ok, inserts, _, _, _, _, _, _, _) =>
+        logger.info(s"Inserted $inserts entries into ${baseModel.collectionName}")
+        inserts
     }
+  }
 
 }
