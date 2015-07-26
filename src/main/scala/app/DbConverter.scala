@@ -1,18 +1,20 @@
 package app
 
+import scala.collection.JavaConversions.asScalaBuffer
 import scala.concurrent.Await
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 import scala.concurrent.duration.Duration
-
-import models.{BaseModel, ViscachaCategories, ViscachaForumData, ViscachaForumPermissions, ViscachaForums, ViscachaGroups, ViscachaReplies, ViscachaTopics, ViscachaUploads, ViscachaUsers}
-import reactivemongo.api.{DB, MongoDriver}
+import models.{ BaseModel, ViscachaCategories, ViscachaForumData, ViscachaForumPermissions, ViscachaForums, ViscachaGroups, ViscachaReplies, ViscachaTopics, ViscachaUploads, ViscachaUsers }
+import reactivemongo.api.{ DB, MongoDriver }
 import reactivemongo.api.collections.bson.BSONCollection
 import reactivemongo.api.commands.MultiBulkWriteResult
-import reactivemongo.bson.{BSONDocument, BSONDocumentIdentity, BSONDocumentWriter}
+import reactivemongo.bson.{ BSONDocument, BSONDocumentIdentity, BSONDocumentWriter }
 import slick.driver.MySQLDriver.api._
 import util.Logging
-
+import com.typesafe.config.ConfigFactory
+import java.nio.file.Files
+import java.nio.file.Paths
 
 object DbConverter {
 
@@ -28,10 +30,16 @@ class DbConverter extends Logging {
 
     logger.info("Connecting to DB ...")
 
-    implicit val viscachaDb = Database.forConfig("viscacha")
+    val dbConfigOverridePath = Paths get "db.conf"
+    val dbConfig = if (Files exists dbConfigOverridePath)
+      ConfigFactory.parseFile(dbConfigOverridePath.toFile).withFallback(ConfigFactory.load())
+    else
+      ConfigFactory.load()
+
+    implicit val viscachaDb = Database.forConfig("viscacha", dbConfig)
 
     val mongoDriver = new MongoDriver
-    val mongoConnection = mongoDriver.connection(List("localhost"))
+    val mongoConnection = mongoDriver.connection(nodes = dbConfig.getStringList("fnb.db.nodes"))
 
     try {
 

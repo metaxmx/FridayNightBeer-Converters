@@ -9,3 +9,4 @@ target
 .sbtserver*
 /bin/
 /.*
+/db.conf
