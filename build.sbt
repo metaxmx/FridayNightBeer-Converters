@@ -2,7 +2,7 @@ name := """fnb-db-converter"""
 
 mainClass in Compile := Some("app.DbConverter")
 
-scalaVersion := "2.11.6"
+scalaVersion := "2.11.7"
 
 lazy val fnbDatamodel = RootProject(file("../fnb-play/modules/datamodel"))
 
@@ -24,5 +24,6 @@ EclipseKeys.withSource := true
 
 EclipseKeys.createSrc := EclipseCreateSrc.Default + EclipseCreateSrc.Resource
 
-scalacOptions += "-feature"
-scalacOptions += "-deprecation"
+javacOptions ++= Seq("-source", "1.8", "-target", "1.8")
+
+scalacOptions ++= Seq("-feature", "-deprecation")

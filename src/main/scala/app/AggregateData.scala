@@ -1,15 +1,29 @@
 package app
 
-import models._
-import models.ForumPermissions._
-import util.Logging
-import util.Converter._
+import java.io.IOException
+import java.nio.file.{Files, Path, Paths, SimpleFileVisitor}
+import java.nio.file.FileVisitResult.CONTINUE
+import java.nio.file.StandardCopyOption.COPY_ATTRIBUTES
+import java.nio.file.attribute.BasicFileAttributes
+
 import org.joda.time.DateTime
-import util.Joda._
+
+import models.{AccessRule, FnbForumData, Forum, ForumCategory}
+import models.{Group, Post, PostEdit, PostUpload, Thread, ThreadPostData, User, ViscachaForumData, ViscachaUpload}
+import models.ForumPermissions.Access
+import util.Converter.{checkEmpty, convertContent, unescapeViscacha}
+import util.Joda.dateTimeOrdering
+import util.Logging
 
 class AggregateData(viscachaData: ViscachaForumData) extends Logging {
 
   lazy val userMap = viscachaData.users.map { user => user.name -> user.id }.toMap
+
+  val pathToViscachaUploads = Paths get "../fnb-play/appdata/_viscacha_uploads"
+
+  val pathToFnbUploads = Paths get "../fnb-play/appdata/uploads"
+
+  val pathToFnbAvatars = Paths get "../fnb-play/appdata/avatars"
 
   def aggregate: FnbForumData = {
 
@@ -18,7 +32,7 @@ class AggregateData(viscachaData: ViscachaForumData) extends Logging {
     val users = viscachaData.users map {
       user =>
         User(user.id, user.name.toLowerCase, user.pw, user.name, checkEmpty(user.fullname).map(unescapeViscacha),
-          checkEmpty(user.pic).map { _.replace("uploads/pics/", "") }, None)
+          checkEmpty(user.pic).map { _.replace("uploads/pics/", "") }.filter { pic => Files exists (pathToFnbAvatars resolve pic) }, None)
     }
 
     // TODO
@@ -30,6 +44,18 @@ class AggregateData(viscachaData: ViscachaForumData) extends Logging {
       cat => ForumCategory(cat.id, unescapeViscacha(cat.name), cat.position, None)
     }
 
+    if (Files isDirectory pathToFnbUploads) {
+      delTree(pathToFnbUploads)
+    }
+
+    val uploadsByPost = viscachaData.uploads.map {
+      ul => ul.post_id -> precessUpload(ul)
+    }.filter {
+      case (post_id, uploadOpt) => uploadOpt.isDefined
+    }.map {
+      case (post_id, uploadOpt) => post_id -> uploadOpt.get
+    }.groupBy { _._1 }.mapValues { _ map (_._2) }
+
     val posts = viscachaData.replies map {
       reply =>
         Post(
@@ -38,7 +64,8 @@ class AggregateData(viscachaData: ViscachaForumData) extends Logging {
           convertContent(reply.comment),
           reply.name.toInt,
           new DateTime(reply.date * 1000),
-          parseEdits(reply.edit))
+          parseEdits(reply.edit),
+          uploadsByPost get reply.id getOrElse Seq())
     }
 
     val postsByThread = posts groupBy { _.thread } mapValues { _ sortBy { _.dateCreated } }
@@ -97,6 +124,27 @@ class AggregateData(viscachaData: ViscachaForumData) extends Logging {
     val e = post.edits.map { _ map { edit => ThreadPostData(edit.user, edit.date) } } getOrElse (Seq())
     (p +: e).maxBy { _.date }
   }
+
+  def precessUpload(upload: ViscachaUpload): Option[PostUpload] = {
+    val path = pathToViscachaUploads resolve upload.source
+    if (Files exists path) {
+      val size = Files size path
+      val lastModified = Files getLastModifiedTime path
+      val imageData = None
+      val targetPath = pathToFnbUploads resolve upload.post_id.toString resolve upload.source
+      Files.createDirectories(targetPath.getParent)
+      Files.copy(path, targetPath, COPY_ATTRIBUTES)
+      Some(PostUpload(upload.user_id, new DateTime(lastModified.toMillis), upload.file, upload.source, size, imageData, upload.hits))
+    } else {
+      logger.error(s"Upload File not found: ${upload.source}")
+      None
+    }
+  }
+
+  def delTree(path: Path) = Files.walkFileTree(path, new SimpleFileVisitor[Path] {
+    override def visitFile(file: Path, attrs: BasicFileAttributes) = { Files.delete(file); CONTINUE }
+    override def postVisitDirectory(dir: Path, exc: IOException) = { Files.delete(dir); CONTINUE }
+  });
 
 }
 

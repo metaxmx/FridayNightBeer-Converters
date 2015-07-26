@@ -230,3 +230,29 @@ class ViscachaReplies(tag: Tag)
   def * = (id, topic_id, name, comment, ip, date, edit) <> (ViscachaReply.tupled, ViscachaReply.unapply)
 }
 
+/*
+ * --- Upload ---
+ */
+
+case class ViscachaUpload(
+  id: Int,
+  post_id: Int,
+  topic_id: Int,
+  user_id: Int,
+  file: String,
+  source: String,
+  hits: Int)
+
+class ViscachaUploads(tag: Tag)
+  extends Table[ViscachaUpload](tag, "v_uploads") {
+
+  def id = column[Int]("id", O.PrimaryKey)
+  def post_id = column[Int]("tid")
+  def topic_id = column[Int]("topic_id")
+  def user_id = column[Int]("mid")
+  def file = column[String]("file")
+  def source = column[String]("source")
+  def hits = column[Int]("hits")
+
+  def * = (id, post_id, topic_id, user_id, file, source, hits) <> (ViscachaUpload.tupled, ViscachaUpload.unapply)
+}

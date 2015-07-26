@@ -1,22 +1,18 @@
 package app
 
-import scala.concurrent.{ Future, Await }
-import scala.concurrent.duration.Duration
+import scala.concurrent.Await
 import scala.concurrent.ExecutionContext.Implicits.global
-import slick.driver.MySQLDriver.api._
-import reactivemongo.api._
-import play.api.libs.iteratee.Enumerator
-import scala.util._
-import models._
-import util._
-import util.Converter._
-import org.joda.time.DateTime
-import scala.collection.mutable.WrappedArray
+import scala.concurrent.Future
+import scala.concurrent.duration.Duration
+
+import models.{BaseModel, ViscachaCategories, ViscachaForumData, ViscachaForumPermissions, ViscachaForums, ViscachaGroups, ViscachaReplies, ViscachaTopics, ViscachaUploads, ViscachaUsers}
+import reactivemongo.api.{DB, MongoDriver}
 import reactivemongo.api.collections.bson.BSONCollection
-import reactivemongo.bson._
-import reactivemongo.bson.BSONWriter
 import reactivemongo.api.commands.MultiBulkWriteResult
-import scala.concurrent.Promise
+import reactivemongo.bson.{BSONDocument, BSONDocumentIdentity, BSONDocumentWriter}
+import slick.driver.MySQLDriver.api._
+import util.Logging
+
 
 object DbConverter {
 
@@ -50,8 +46,9 @@ class DbConverter extends Logging {
           forums <- fetchViscachaForums
           topics <- fetchViscachaTopics
           replies <- fetchViscachaReplies
+          uploads <- fetchViscachaUploads
           permissions <- fetchViscachaForumPermissions
-        } yield AggregateData(ViscachaForumData(users, groups, categories, forums, topics, replies, permissions))
+        } yield AggregateData(ViscachaForumData(users, groups, categories, forums, topics, replies, uploads, permissions))
 
         val insertFuture = for {
           aggregateData <- aggregateDataFuture
@@ -88,6 +85,8 @@ class DbConverter extends Logging {
   def fetchViscachaTopics(implicit db: Database) = db.run(TableQuery[ViscachaTopics].sortBy { _.id }.result)
 
   def fetchViscachaReplies(implicit db: Database) = db.run(TableQuery[ViscachaReplies].sortBy { _.id }.result)
+
+  def fetchViscachaUploads(implicit db: Database) = db.run(TableQuery[ViscachaUploads].sortBy { _.id }.result)
 
   def fetchViscachaForumPermissions(implicit db: Database) = db.run(TableQuery[ViscachaForumPermissions].sortBy { _.id }.result)
 

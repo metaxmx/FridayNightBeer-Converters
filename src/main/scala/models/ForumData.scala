@@ -7,6 +7,7 @@ case class ViscachaForumData(
   forums: Seq[ViscachaForum],
   topics: Seq[ViscachaTopic],
   replies: Seq[ViscachaReply],
+  uploads: Seq[ViscachaUpload],
   forumPermissions: Seq[ViscachaForumPermission])
 
 case class FnbForumData(
