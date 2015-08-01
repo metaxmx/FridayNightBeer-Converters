@@ -10,3 +10,4 @@ target
 /bin/
 /.*
 /db.conf
+/instance.conf

@@ -4,7 +4,7 @@ mainClass in Compile := Some("app.DbConverter")
 
 scalaVersion := "2.11.7"
 
-lazy val fnbDatamodel = RootProject(file("../fnb-play/modules/datamodel"))
+lazy val fnbDatamodel = RootProject(file("../FridayNightBeer/modules/datamodel"))
 
 lazy val fnbConverter = (project in file(".")).dependsOn(fnbDatamodel)
 
@@ -16,7 +16,7 @@ libraryDependencies ++= List(
   "commons-lang" % "commons-lang" % "2.6",
   "ch.qos.logback" % "logback-classic" % "1.1.1",
   "mysql" % "mysql-connector-java" % "latest.release",
-  "org.reactivemongo" %% "reactivemongo" % "0.11.0.play23",
+  "org.reactivemongo" %% "reactivemongo" % "0.11.4",
   "org.scalatest" %% "scalatest" % "2.2.4" % "test"
 )
 

@@ -19,11 +19,13 @@ class AggregateData(viscachaData: ViscachaForumData) extends Logging {
 
   lazy val userMap = viscachaData.users.map { user => user.name -> user.id }.toMap
 
-  val pathToViscachaUploads = Paths get "../fnb-play/appdata/_viscacha_uploads"
+  val pathToFnb = Paths get "../FridayNightBeer"
+  
+  val pathToViscachaUploads = pathToFnb resolve "appdata/_viscacha_uploads"
 
-  val pathToFnbUploads = Paths get "../fnb-play/appdata/uploads"
+  val pathToFnbUploads = pathToFnb resolve "appdata/uploads"
 
-  val pathToFnbAvatars = Paths get "../fnb-play/appdata/avatars"
+  val pathToFnbAvatars = pathToFnb resolve "appdata/avatars"
 
   def aggregate: FnbForumData = {
 

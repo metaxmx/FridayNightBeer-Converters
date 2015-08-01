@@ -15,6 +15,7 @@ import util.Logging
 import com.typesafe.config.ConfigFactory
 import java.nio.file.Files
 import java.nio.file.Paths
+import reactivemongo.api.MongoConnection
 
 object DbConverter {
 
@@ -30,16 +31,18 @@ class DbConverter extends Logging {
 
     logger.info("Connecting to DB ...")
 
-    val dbConfigOverridePath = Paths get "db.conf"
-    val dbConfig = if (Files exists dbConfigOverridePath)
-      ConfigFactory.parseFile(dbConfigOverridePath.toFile).withFallback(ConfigFactory.load())
+    val configOverridePath = Paths get "instance.conf"
+
+    val config = if (Files exists configOverridePath)
+      ConfigFactory.parseFile(configOverridePath.toFile).withFallback(ConfigFactory.load())
     else
       ConfigFactory.load()
 
-    implicit val viscachaDb = Database.forConfig("viscacha", dbConfig)
+    implicit val viscachaDb = Database.forConfig("viscacha", config)
 
-    val mongoDriver = new MongoDriver
-    val mongoConnection = mongoDriver.connection(nodes = dbConfig.getStringList("fnb.db.nodes"))
+    val mongoDriver = new MongoDriver(Some(config))
+    val mongoUri = MongoConnection.parseURI(config.getString("mongodb.uri")).get
+    val mongoConnection = mongoDriver.connection(mongoUri)
 
     try {
 
