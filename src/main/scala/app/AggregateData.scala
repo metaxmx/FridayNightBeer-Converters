@@ -81,10 +81,10 @@ class AggregateData(viscachaData: ViscachaForumData) extends Logging {
     val forums = viscachaData.forums map {
       forum =>
         {
-          val forumPermissions: Seq[AccessRule] = if (forumIdsWithGuestAccess.contains(forum.id))
-            Seq()
+          val forumPermissions: Option[Seq[AccessRule]] = if (forumIdsWithGuestAccess.contains(forum.id))
+            None
           else
-            Seq(AccessRule(Access.toString, None, None, None, None, false))
+            Some(Seq(AccessRule(Access.toString, None, None, None, None, false)))
           Forum(forum.id, unescapeViscacha(forum.name), Some(forum.description).map(unescapeViscacha),
             forum.parent, forum.position, forum.readonly > 0, forumPermissions)
         }
