@@ -63,6 +63,7 @@ class DbConverter extends Logging {
 
         val insertFuture = for {
           aggregateData <- aggregateDataFuture
+          insertedGroups <- insertData(aggregateData.groups)
           insertedUsers <- insertData(aggregateData.users)
           insertedCategories <- insertData(aggregateData.categories)
           insertedForums <- insertData(aggregateData.forums)

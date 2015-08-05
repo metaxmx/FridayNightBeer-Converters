@@ -1,17 +1,17 @@
 package app
 
 import java.io.IOException
-import java.nio.file.{Files, Path, Paths, SimpleFileVisitor}
+import java.nio.file.{ Files, Path, Paths, SimpleFileVisitor }
 import java.nio.file.FileVisitResult.CONTINUE
 import java.nio.file.StandardCopyOption.COPY_ATTRIBUTES
 import java.nio.file.attribute.BasicFileAttributes
 
 import org.joda.time.DateTime
 
-import models.{AccessRule, FnbForumData, Forum, ForumCategory}
-import models.{Group, Post, PostEdit, PostUpload, Thread, ThreadPostData, User, ViscachaForumData, ViscachaUpload}
+import models.{ AccessRule, FnbForumData, Forum, ForumCategory }
+import models.{ Group, Post, PostEdit, PostUpload, Thread, ThreadPostData, User, ViscachaForumData, ViscachaUpload }
 import models.ForumPermissions.Access
-import util.Converter.{checkEmpty, convertContent, unescapeViscacha}
+import util.Converter.{ checkEmpty, convertContent, unescapeViscacha }
 import util.Joda.dateTimeOrdering
 import util.Logging
 
@@ -20,7 +20,7 @@ class AggregateData(viscachaData: ViscachaForumData) extends Logging {
   lazy val userMap = viscachaData.users.map { user => user.name -> user.id }.toMap
 
   val pathToFnb = Paths get "../FridayNightBeer"
-  
+
   val pathToViscachaUploads = pathToFnb resolve "appdata/_viscacha_uploads"
 
   val pathToFnbUploads = pathToFnb resolve "appdata/uploads"
@@ -31,16 +31,41 @@ class AggregateData(viscachaData: ViscachaForumData) extends Logging {
 
     logger.info("Aggregating data ...")
 
+    val groupIdsByUserId = viscachaData.users.map {
+      user => user.id -> user.groups.split(',').toSet.filterNot { _.isEmpty }.map { _.toInt }
+    }.toMap
+
+    val usedGroupIds = groupIdsByUserId.values.flatten.toSet
+
+    val (vCoreGroups, vCustomGroups) = viscachaData.groups.partition { _.core }
+    val vGuestGroupOpt = vCoreGroups.find { _.guest }
+    val vAdminGroupOpt = vCoreGroups.find { _.admin }
+    val vSupermodGroupOpt = vCoreGroups.find { g => g.gmod && !g.admin }
+
+    val adminGroup = Group("admin", "Admins")
+    val supermodGroup = Group("supermod", "Super Mod")
+    val predefinedGroups = Seq(adminGroup, supermodGroup)
+
+    val customGroupsMap = vCustomGroups.filter { usedGroupIds contains _.id }.map {
+      vGroup => vGroup.id -> Group(vGroup.name, vGroup.title)
+    }.toMap
+    val customGroups = customGroupsMap.values
+
+    val groupsMap = customGroupsMap ++
+      (vAdminGroupOpt.map { g => Seq(g.id -> adminGroup) }.getOrElse(Seq())) ++
+      (vSupermodGroupOpt.map { g => Seq(g.id -> supermodGroup) }.getOrElse(Seq()))
+
+    val groups = predefinedGroups ++ customGroups
+
     val users = viscachaData.users map {
       user =>
+        val groupsForUser = groupIdsByUserId.get(user.id).map {
+          _.filter { groupsMap contains _ }.map { groupsMap apply _ }.map { _._id }.toSeq
+          }.flatMap { groupList => if (groupList.isEmpty) None else Some(groupList) }
         User(user.id, user.name.toLowerCase, user.pw, user.name, checkEmpty(user.fullname).map(unescapeViscacha),
-          checkEmpty(user.pic).map { _.replace("uploads/pics/", "") }.filter { pic => Files exists (pathToFnbAvatars resolve pic) }, None)
+          checkEmpty(user.pic).map { _.replace("uploads/pics/", "") }.filter { pic => Files exists (pathToFnbAvatars resolve pic) },
+          groupsForUser)
     }
-
-    // TODO
-    val groups = Seq[Group]()
-
-    val guestGroupOpt = viscachaData.groups.find { _.guest }
 
     val categories = viscachaData.categories map {
       cat => ForumCategory(cat.id, unescapeViscacha(cat.name), cat.position, None)
@@ -75,7 +100,7 @@ class AggregateData(viscachaData: ViscachaForumData) extends Logging {
     val lastChangeByThread = postsByThread mapValues { _.map { latestChange(_) }.sortBy { _.date }.reverse } mapValues { _.head }
 
     val forumIdsWithGuestAccess = viscachaData.forumPermissions.filter {
-      p => p.group == 0 || guestGroupOpt.exists { _.id == p.group }
+      p => p.group == 0 || vGuestGroupOpt.exists { _.id == p.group }
     }.filter { _.forumAccess }.map { _.forum }.toSet
 
     val forums = viscachaData.forums map {

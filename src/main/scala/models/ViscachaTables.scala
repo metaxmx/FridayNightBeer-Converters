@@ -19,7 +19,8 @@ case class ViscachaUser(
   gender: String,
   birthday: Option[String],
   pic: String,
-  lastvisit: Long)
+  lastvisit: Long,
+  groups: String)
 
 class ViscachaUsers(tag: Tag)
   extends Table[ViscachaUser](tag, "v_user") {
@@ -36,8 +37,9 @@ class ViscachaUsers(tag: Tag)
   def birthday = column[Option[String]]("birthday")
   def pic = column[String]("pic")
   def lastvisit = column[Long]("lastvisit")
+  def groups = column[String]("groups")
 
-  def * = (id, name, pw, mail, regdate, fullname, signature, location, gender, birthday, pic, lastvisit) <> (ViscachaUser.tupled, ViscachaUser.unapply)
+  def * = (id, name, pw, mail, regdate, fullname, signature, location, gender, birthday, pic, lastvisit, groups) <> (ViscachaUser.tupled, ViscachaUser.unapply)
 }
 
 /*
@@ -47,6 +49,7 @@ class ViscachaUsers(tag: Tag)
 case class ViscachaGroup(
   id: Int,
   admin: Boolean,
+  gmod: Boolean,
   guest: Boolean,
   members: Boolean,
   profile: Boolean,
@@ -54,9 +57,6 @@ case class ViscachaGroup(
   wwo: Boolean,
   search: Boolean,
   team: Boolean,
-  usepic: Boolean,
-  useabout: Boolean,
-  usesignature: Boolean,
   downloadfiles: Boolean,
   forum: Boolean,
   posttopics: Boolean,
@@ -65,13 +65,16 @@ case class ViscachaGroup(
   attachments: Boolean,
   edit: Boolean,
   voting: Boolean,
-  title: String)
+  title: String,
+  name: String,
+  core: Boolean)
 
 class ViscachaGroups(tag: Tag)
   extends Table[ViscachaGroup](tag, "v_groups") {
 
   def id = column[Int]("id", O.PrimaryKey)
   def admin = column[Boolean]("admin")
+  def gmod = column[Boolean]("gmod")
   def guest = column[Boolean]("guest")
   def members = column[Boolean]("members")
   def profile = column[Boolean]("profile")
@@ -79,9 +82,6 @@ class ViscachaGroups(tag: Tag)
   def wwo = column[Boolean]("wwo")
   def search = column[Boolean]("search")
   def team = column[Boolean]("team")
-  def usepic = column[Boolean]("usepic")
-  def useabout = column[Boolean]("useabout")
-  def usesignature = column[Boolean]("usesignature")
   def downloadfiles = column[Boolean]("downloadfiles")
   def forum = column[Boolean]("forum")
   def posttopics = column[Boolean]("posttopics")
@@ -91,8 +91,10 @@ class ViscachaGroups(tag: Tag)
   def edit = column[Boolean]("edit")
   def voting = column[Boolean]("voting")
   def title = column[String]("title")
+  def name = column[String]("name")
+  def core = column[Boolean]("core")
 
-  def * = (id, admin, guest, members, profile, pm, wwo, search, team, usepic, useabout, usesignature, downloadfiles, forum, posttopics, postreplies, addvotes, attachments, edit, voting, title) <> (ViscachaGroup.tupled, ViscachaGroup.unapply)
+  def * = (id, admin, gmod, guest, members, profile, pm, wwo, search, team, downloadfiles, forum, posttopics, postreplies, addvotes, attachments, edit, voting, title, name, core) <> (ViscachaGroup.tupled, ViscachaGroup.unapply)
 }
 
 /*
