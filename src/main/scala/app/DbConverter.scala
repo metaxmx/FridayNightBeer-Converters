@@ -1,11 +1,10 @@
 package app
 
-import scala.collection.JavaConversions.asScalaBuffer
 import scala.concurrent.Await
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 import scala.concurrent.duration.Duration
-import models.{ BaseModel, ViscachaCategories, ViscachaForumData, ViscachaForumPermissions, ViscachaForums, ViscachaGroups, ViscachaReplies, ViscachaTopics, ViscachaUploads, ViscachaUsers }
+import models._
 import reactivemongo.api.{ DB, MongoDriver }
 import reactivemongo.api.collections.bson.BSONCollection
 import reactivemongo.api.commands.MultiBulkWriteResult
@@ -16,16 +15,17 @@ import com.typesafe.config.ConfigFactory
 import java.nio.file.Files
 import java.nio.file.Paths
 import reactivemongo.api.MongoConnection
+import storage.mongo._
 
 object DbConverter {
 
-  def main(args: Array[String]) = new DbConverter().process
+  def main(args: Array[String]) = new DbConverter().process()
 
 }
 
 class DbConverter extends Logging {
 
-  def process = {
+  def process() = {
 
     logger.info("Starting DbConverter ...")
 
@@ -46,7 +46,7 @@ class DbConverter extends Logging {
 
     try {
 
-      implicit val mongoDb = mongoConnection.db("fnb")
+      implicit val mongoDb = mongoConnection("fnb")
 
       try {
 
@@ -63,13 +63,13 @@ class DbConverter extends Logging {
 
         val insertFuture = for {
           aggregateData <- aggregateDataFuture
-          insertedGroups <- insertData(aggregateData.groups)
-          insertedUsers <- insertData(aggregateData.users)
-          insertedCategories <- insertData(aggregateData.categories)
-          insertedForums <- insertData(aggregateData.forums)
-          insertedThreads <- insertData(aggregateData.threads)
-          insertedPosts <- insertData(aggregateData.posts)
-        } yield (insertedUsers + insertedCategories + insertedForums + insertedThreads + insertedPosts)
+          insertedGroups <- insertData(aggregateData.groups, "groups")
+          insertedUsers <- insertData(aggregateData.users, "users")
+          insertedCategories <- insertData(aggregateData.categories, "categories")
+          insertedForums <- insertData(aggregateData.forums, "forums")
+          insertedThreads <- insertData(aggregateData.threads, "threads")
+          insertedPosts <- insertData(aggregateData.posts, "posts")
+        } yield insertedUsers + insertedCategories + insertedForums + insertedThreads + insertedPosts
 
         val inserted = Await.result(insertFuture, Duration.Inf)
 
@@ -77,7 +77,7 @@ class DbConverter extends Logging {
 
       } finally {
         mongoConnection.close()
-        mongoConnection.actorSystem.shutdown()
+        mongoConnection.actorSystem.terminate()
       }
 
     } finally viscachaDb.close()
@@ -102,14 +102,14 @@ class DbConverter extends Logging {
 
   def fetchViscachaForumPermissions(implicit db: Database) = db.run(TableQuery[ViscachaForumPermissions].sortBy { _.id }.result)
 
-  def insertData[T](data: Seq[T])(implicit db: DB, writer: BSONDocumentWriter[T], baseModel: BaseModel[T]): Future[Int] = {
-    val collection = db.collection[BSONCollection](baseModel.collectionName)
-    val entities = data.map(writer.write(_)).toStream
+  def insertData[T](data: Seq[T], collectionName: String)(implicit db: DB, writer: BSONDocumentWriter[T]): Future[Int] = {
+    val collection = db.collection[BSONCollection](collectionName)
+    val entities = data.map(writer.write).toStream
     collection.remove(BSONDocument()).flatMap {
-      _ => collection.bulkInsert(entities, true)
+      _ => collection.bulkInsert(entities, ordered = true)
     } map {
       case MultiBulkWriteResult(ok, inserts, _, _, _, _, _, _, _) =>
-        logger.info(s"Inserted $inserts entries into ${baseModel.collectionName}")
+        logger.info(s"Inserted $inserts entries into $collectionName")
         inserts
     }
   }
