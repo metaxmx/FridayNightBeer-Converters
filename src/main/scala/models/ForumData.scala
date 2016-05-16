@@ -16,4 +16,5 @@ case class FnbForumData(
   categories: Seq[ForumCategory],
   forums: Seq[Forum],
   threads: Seq[Thread],
-  posts: Seq[Post])
+  posts: Seq[Post],
+  permissions: Seq[Permission])

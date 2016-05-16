@@ -69,7 +69,8 @@ class DbConverter extends Logging {
           insertedForums <- insertData(aggregateData.forums, "forums")
           insertedThreads <- insertData(aggregateData.threads, "threads")
           insertedPosts <- insertData(aggregateData.posts, "posts")
-        } yield insertedUsers + insertedCategories + insertedForums + insertedThreads + insertedPosts
+          insertedPermissions <- insertData(aggregateData.permissions, "permissions")
+        } yield insertedUsers + insertedCategories + insertedForums + insertedThreads + insertedPosts + insertedPermissions
 
         val inserted = Await.result(insertFuture, Duration.Inf)
 

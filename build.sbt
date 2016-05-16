@@ -2,7 +2,7 @@ import sbt.RootProject
 
 name := """fnb-db-converter"""
 
-//mainClass in Compile := Some("app.DbConverter")
+mainClass in Compile := Some("app.DbConverter")
 
 scalaVersion := "2.11.8"
 

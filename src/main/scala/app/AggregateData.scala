@@ -7,14 +7,12 @@ import java.nio.file.StandardCopyOption.COPY_ATTRIBUTES
 import java.nio.file.attribute.BasicFileAttributes
 
 import org.joda.time.DateTime
-import models.{AccessRule, FnbForumData, Forum, ForumCategory}
-import models.{Group, Post, PostEdit, PostUpload, Thread, ThreadPostData, User, ViscachaForumData, ViscachaUpload}
-import models.ForumPermissions.Access
+import models._
+import permissions.{ForumPermissions, GlobalPermissions, ThreadPermissions}
 import reactivemongo.bson.BSONObjectID
 import util.Converter.{checkEmpty, convertContent, unescapeViscacha}
 import util.Joda.dateTimeOrdering
 import util.Logging
-import storage.mongo._
 
 import scala.collection.mutable
 
@@ -61,18 +59,18 @@ class AggregateData(viscachaData: ViscachaForumData) extends Logging {
     val vAdminGroupOpt = vCoreGroups.find { _.admin }
     val vSupermodGroupOpt = vCoreGroups.find { g => g.gmod && !g.admin }
 
-    val adminGroup = Group("admin", "Admins")
-    val supermodGroup = Group("supermod", "Super Mod")
+    val adminGroup = Group(BSONObjectID.generate.stringify, "Admin", "Administrator")
+    val supermodGroup = Group(BSONObjectID.generate.stringify, "Supermod", "Super Moderator")
     val predefinedGroups = Seq(adminGroup, supermodGroup)
 
     val customGroupsMap = vCustomGroups.filter { g => usedGroupIds contains convertGroupId(g.id) }.map {
-      vGroup => convertGroupId(vGroup.id) -> Group(vGroup.name, vGroup.title)
+      vGroup => convertGroupId(vGroup.id) -> Group(convertGroupId(vGroup.id), vGroup.name, vGroup.title)
     }.toMap
     val customGroups = customGroupsMap.values
 
     val groupsMap = customGroupsMap ++
-      vAdminGroupOpt.map { g => Seq(convertGroupId(g.id) -> adminGroup) }.getOrElse(Seq()) ++
-      vSupermodGroupOpt.map { g => Seq(convertGroupId(g.id) -> supermodGroup) }.getOrElse(Seq())
+      vAdminGroupOpt.map { g => Seq(convertGroupId(g.id) -> adminGroup) }.getOrElse(Seq.empty) ++
+      vSupermodGroupOpt.map { g => Seq(convertGroupId(g.id) -> supermodGroup) }.getOrElse(Seq.empty)
 
     val groups = predefinedGroups ++ customGroups
 
@@ -87,7 +85,7 @@ class AggregateData(viscachaData: ViscachaForumData) extends Logging {
     }
 
     val categories = viscachaData.categories map {
-      cat => ForumCategory(convertCatId(cat.id), unescapeViscacha(cat.name), cat.position, None)
+      cat => ForumCategory(convertCatId(cat.id), unescapeViscacha(cat.name), cat.position, None, None)
     }
 
     if (Files isDirectory pathToFnbUploads) {
@@ -124,12 +122,13 @@ class AggregateData(viscachaData: ViscachaForumData) extends Logging {
 
     val forums = viscachaData.forums map {
       forum =>
-        val forumPermissions: Option[Seq[AccessRule]] = if (forumIdsWithGuestAccess.contains(convertForumId(forum.id)))
+        val forumPermissions: Option[Map[String, AccessRule]] = if (forumIdsWithGuestAccess.contains(convertForumId(forum.id)))
           None
         else
-          Some(Seq(AccessRule(Access.toString, None, None, None, None, allowGuest = false)))
+          Some(Map(ForumPermissions.Access.name -> AccessRule().withDenyAll.withAllowAllUsers))
+        val threadPermissions: Option[Map[String, AccessRule]] = None
         Forum(convertForumId(forum.id), unescapeViscacha(forum.name), Some(forum.description).map(unescapeViscacha),
-          convertCatId(forum.parent), forum.position, forum.readonly > 0, forumPermissions)
+          convertCatId(forum.parent), forum.position, forum.readonly > 0, forumPermissions, threadPermissions)
     }
 
     val threads = viscachaData.topics map {
@@ -137,12 +136,44 @@ class AggregateData(viscachaData: ViscachaForumData) extends Logging {
         val firstPost = firstPostByThread(convertThreadId(topic.id))
         val latestChange = lastChangeByThread(convertThreadId(topic.id))
         val posts = postsByThread(convertThreadId(topic.id))
+        val threadPermissions: Option[Map[String, AccessRule]] = None
         Thread(convertThreadId(topic.id), unescapeViscacha(topic.topic), convertForumId(topic.board),
           ThreadPostData(firstPost.userCreated, firstPost.dateCreated),
-          latestChange, posts.size, topic.sticky > 0, None)
+          latestChange, posts.size, topic.sticky > 0, topic.status == 1, threadPermissions)
     }
 
-    FnbForumData(users, groups, categories, forums, threads, posts)
+    def allowAllUsersAndGuests: AccessRule = AccessRule().withAllowAll
+    def allowAllUsers: AccessRule = AccessRule().withDenyAll.withAllowAllUsers
+    def allowAdmins: AccessRule = AccessRule().withDenyAll.withDenyAllUsers.withAllowGroups(adminGroup._id)
+    def allowAdminsAndSuperMods: AccessRule = AccessRule().withDenyAll.withDenyAllUsers.withAllowGroups(adminGroup._id, supermodGroup._id)
+
+    val globalPermissions = Seq(
+      Permission("", GlobalPermissions.name, GlobalPermissions.Forums.name, allowAllUsersAndGuests),
+      Permission("", GlobalPermissions.name, GlobalPermissions.Admin.name, allowAdmins),
+      Permission("", GlobalPermissions.name, GlobalPermissions.Events.name, allowAllUsers),
+      Permission("", GlobalPermissions.name, GlobalPermissions.Media.name, allowAllUsers),
+      Permission("", GlobalPermissions.name, GlobalPermissions.Members.name, allowAllUsers)
+    )
+
+    val forumPermissions = Seq(
+      Permission("", ForumPermissions.name, ForumPermissions.Access.name, allowAllUsersAndGuests),
+      Permission("", ForumPermissions.name, ForumPermissions.CreateThread.name, allowAllUsers),
+      Permission("", ForumPermissions.name, ForumPermissions.Close.name, allowAdminsAndSuperMods),
+      Permission("", ForumPermissions.name, ForumPermissions.Sticky.name, allowAdminsAndSuperMods),
+      Permission("", ForumPermissions.name, ForumPermissions.DeleteThread.name, allowAdminsAndSuperMods)
+    )
+
+    val threadPermissions = Seq(
+      Permission("", ThreadPermissions.name, ThreadPermissions.Access.name, allowAllUsersAndGuests),
+      Permission("", ThreadPermissions.name, ThreadPermissions.Reply.name, allowAllUsers),
+      Permission("", ThreadPermissions.name, ThreadPermissions.Attachment.name, allowAllUsers),
+      Permission("", ThreadPermissions.name, ThreadPermissions.EditPost.name, allowAdminsAndSuperMods),
+      Permission("", ThreadPermissions.name, ThreadPermissions.DeletePost.name, allowAdminsAndSuperMods)
+    )
+
+    val permissions = (globalPermissions ++ forumPermissions ++ threadPermissions).map(_.withId(BSONObjectID.generate.stringify))
+
+    FnbForumData(users, groups, categories, forums, threads, posts, permissions)
   }
 
   def parseEdits(edits: String): Option[Seq[PostEdit]] = checkEmpty(edits) flatMap {
@@ -184,7 +215,7 @@ class AggregateData(viscachaData: ViscachaForumData) extends Logging {
   def delTree(path: Path) = Files.walkFileTree(path, new SimpleFileVisitor[Path] {
     override def visitFile(file: Path, attrs: BasicFileAttributes) = { Files.delete(file); CONTINUE }
     override def postVisitDirectory(dir: Path, exc: IOException) = { Files.delete(dir); CONTINUE }
-  });
+  })
 
 }
 
