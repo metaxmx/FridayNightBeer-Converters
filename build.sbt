@@ -25,6 +25,11 @@ libraryDependencies ++= List(
   "org.scalatest" %% "scalatest" % "2.2.4" % "test"
 )
 
+dependencyOverrides ++= Set(
+  "org.webjars.npm" % "minimatch" % "3.0.0",
+  "org.webjars.npm" % "glob" % "7.0.3"
+)
+
 javacOptions ++= Seq("-source", "1.8", "-target", "1.8")
 
 scalacOptions ++= Seq("-feature", "-deprecation")

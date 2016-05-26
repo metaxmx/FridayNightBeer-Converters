@@ -79,7 +79,7 @@ class AggregateData(viscachaData: ViscachaForumData) extends Logging {
         val groupsForUser = groupIdsByUserId.get(convertUserId(user.id)).map {
           _.filter { groupsMap.contains }.map { groupsMap.apply }.map { _._id }.toSeq
           }.flatMap { groupList => if (groupList.isEmpty) None else Some(groupList) }
-        User(convertUserId(user.id), user.name.toLowerCase, user.pw, user.name, checkEmpty(user.fullname).map(unescapeViscacha),
+        User(convertUserId(user.id), user.name.toLowerCase, user.pw, user.name, user.mail, checkEmpty(user.fullname).map(unescapeViscacha),
           checkEmpty(user.pic).map { _.replace("uploads/pics/", "") }.filter { pic => Files exists (pathToFnbAvatars resolve pic) },
           groupsForUser)
     }
